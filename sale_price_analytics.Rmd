@@ -1,0 +1,491 @@
+---
+title: "sale_price_analysis"
+author: "Jisha"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#Summary of prediction dataset
+
+```{r}
+summary(train)
+```
+
+# The cleaned dataset is split in to test and train for prediction. The dependant variable is saleprice and independent variables we use in the models will be the ones shows high correlation with the dependant variable in the exploration analysis.
+
+# Descriptive and Exploratory analysis of sale price
+
+Histogram of sale price
+
+
+```{r  pressure, echo=FALSE}
+ggplot( train, aes(x = SalePrice,fill = ..count..)) +
+  geom_histogram(binwidth= 5, color = "white") +
+ theme(axis.text.x = element_text(angle = 90))+
+  labs(x = "Sale Price") +
+  ggtitle(" Saleprice Distribution ")
+```
+
+When it comes to housing price, the value of house is usually related to two types of elements: internal and external. Internal elements are the key features of house itself, like total area, the number of rooms. As for External elements, environment is one of the key factors. 
+
+#Explore the distribution of SalePrice by MSZoning
+MSZoning: Identifies the general zoning classification of the sale.
+
+  A    Agriculture
+   C    Commercial
+   FV   Floating Village Residential
+   I     Industrial
+   RH   Residential High Density
+   RL   Residential Low Density
+   RP   Residential Low Density Park 
+   RM   Residential Medium Density
+   
+ Let's  explore the relationship between MSZoning and our target variable SalePrice.
+
+```{r pressure, echo=FALSE}
+# count house by MSZoning
+options(repr.plot.width=5, repr.plot.height=4)
+ggplot(train, aes(x = MSZoning, fill = MSZoning )) + 
+geom_bar()+ 
+scale_fill_hue(c = 80)+
+ggtitle("Figure 3 Distribution of MSZoning")+
+theme(plot.title = element_text(hjust = 0.5),legend.position="right", legend.background = element_rect(fill="grey90",
+                                                                                                           size=0.5, linetype="solid", 
+                                                                                                           colour ="black"))+
+geom_text(stat='count',aes(label=..count..),vjust=-0.25)
+
+
+```
+
+
+```{r}
+# Distribution of MSZoning
+table(train$MSZoning)
+```
+
+From the graph and table above, it is obvious that most of houses in this dataset are built in the area of Residential Low Density(806 houses), and follows by Residential Medium Density(152 houses). Few houses are built in Commercial, Floating Village and Residential High Density. 
+
+#How does housing price look like in each category?
+
+```{r}
+#boxplot of SalePrice by MSZoning
+#add average value of SalePrice as red point
+ggplot(train, aes(x=MSZoning, y=SalePrice, fill=MSZoning)) + 
+  geom_boxplot(alpha=0.3) +
+  stat_summary(fun.y=mean, geom="point", shape=20, size=4, color="red", fill="red")+
+  theme(legend.position="none")+
+  ggtitle(" Boxplot of SalePrice by MSZoning")+
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+The graph above shows the distribution of SalePrice by MSZoning. The sales in "Floating Village Residential" area have the highest average sale price, and then followed by "Residential Low Density". While "Commercial" sales have the lowest average sale price. 
+
+It is quite strange that commercial area has the lowest average Sale Price while village area has the highest. One possible explanation could be SalePrice is also related to the size of houses. To confirm, let's explore the average size in these area.The variable indicates size in this dataset is called GrLivArea. 
+
+Definition: Above ground living area square feet 
+
+```{r}
+ddply(train, .(MSZoning), summarize,  size=mean(GrLivArea))
+```
+
+The avarage size of houses in Commecial are is much smaller than Floating Village area, which verified our assumption above.
+
+#Explore the distribution of SalePrice by BldgType
+
+BldgType: Type of dwelling
+
+    1Fam Single-family Detached  
+   2FmCon   Two-family Conversion; originally built as one-family dwelling
+   Duplx    Duplex
+   TwnhsE   Townhouse End Unit
+   TwnhsI   Townhouse Inside Unit
+
+```{r}
+#To get a quick feel about BldgType, use a table to count houses in each catetory and also show mean SalePrice.
+
+#ddply(train, .(BldgType), summarize,Total = length(BldgType),Max_price=max(SalePrice),Min_price=min(SalePrice))
+train %>%
+group_by(BldgType) %>% 
+  dplyr::summarise(n = n(), 
+            mean_SalePrice =mean(SalePrice))
+
+```
+
+
+```{r }
+ggplot(train,aes(x = SalePrice,fill=BldgType))+
+  geom_histogram(biwidth = 10)+
+   coord_flip() + ggtitle("BldgType Vs SalePrice") +
+  scale_x_continuous(labels = dollar)+
+  facet_wrap(~BldgType)
+```
+
+More thoughts about the graph above:
+
+For houses with type of Single-family Detached, most of their prices are within the range from 50000 to 300000
+For Two-family Conversion, Duplex, Townhouse End Unit and Townhouse Inside Unit, most of house prices are ranging from 75000 to 210000
+The highest and lowest house price both come to Single-family Detached house type
+
+# Distribution of SalePrice by OverallQual
+
+The last one is OverallQual.
+
+OverallQual: Rates the overall material and finish of the house
+
+   10   Very Excellent
+   9    Excellent
+   8    Very Good
+   7    Good
+   6    Above Average
+   5    Average
+   4    Below Average
+   3    Fair
+   2    Poor
+   1    Very Poor
+
+
+```{r}
+ggplot( train, aes(x = SalePrice,fill = as.factor(OverallQual))) +
+  geom_histogram(binwidth= 5, color = "white") +
+ theme(axis.text.x = element_text(angle = 90))+
+  labs(x = "Sale Price") +
+  ggtitle(" Saleprice and OverallQuality ")
+```
+
+The graph above explains:
+Most houese are with OverallQuall of 4,5,6 and 7, equivalent to "Below Average", "Average", "Above Average" and "Good"
+The higher rate of overall quality, the higher house sale price
+
+#What kind of house will be sold for higher price?
+
+# Correlation Exploration
+
+ Creating a Correlation Heatmap to plot correlation coefficients will provide  a clear view of how the key variables relate to SalePrice
+ 
+Before plotting heatmap,we need to convert our factor variables to numerics.Since these factor varaibles evaluate quality of house with ordered levels, such as "Ex", "Fa","Gd", "TA", and "Po", here, we match them to numbers: "1","2","3","4", and "5". That is, the smaller number, the higher level. After transforming, all the variables used for heatmap are numeric.
+
+```{r}
+train$ExterCond  = as.integer(train$ExterCond )
+test$ExterCond  = as.integer(test$ExterCond )
+train$HeatingQC  = as.integer(train$HeatingQC )
+test$HeatingQC = as.integer(test$HeatingQC )
+train$CentralAir  = as.integer(train$CentralAir) # Yes=2,No=1
+test$CentralAir = as.integer(test$CentralAir )
+```
+
+```{r}
+#select variables that be used for model buidling and heat map
+model_var <- c('SalePrice', 
+                'OverallQual','OverallCond','YearBuilt','ExterCond',
+                'TotalBsmtSF','HeatingQC', 
+                'CentralAir','GrLivArea','BedroomAbvGr',
+                'TotRmsAbvGrd','Fireplaces',
+                'GarageArea','OpenPorchSF',
+                 'YrSold','YearRemodAdd')
+heat <- train[,model_var]
+
+```
+
+
+```{r }
+#plot correlation heatmap for SalePrice
+options(repr.plot.width=10, repr.plot.height=8)
+library(reshape2)
+qplot(x=Var1, y=Var2, data=melt(cor(heat, use="p")), fill=value, geom="tile") +
+   scale_fill_gradient2(low = "green", high = "red", mid = "white", 
+   midpoint = 0, limit = c(-1,1), space = "Lab", 
+   name="Correlation") +
+   theme_minimal()+ 
+   theme(axis.text.x = element_text(angle = 45, vjust = 1, size = 8, hjust = 1))+
+   coord_fixed()+
+   ggtitle("Correlation Heatmap") +
+   theme(plot.title = element_text(hjust = 0.4))
+```
+
+In this graph, Red indicates perfect positive correlation and Green indicates perfect negative correlation. As we can see, there are several variables should be paid attention to: GarageArea, Fireplaces, TotRmsAbvGrd, GrLivArea, HeatingQC, TotalBsmtSF,YearBuild and YearRemodAdd.
+
+ # Correlation between SalePrice and some numeric variables
+
+Here we are going to analyze the correlation between SalePrice and numeric variables, including GrLivArea,TotalBsmtSF, TotRmsAbvGrd, GarageArea. Different from categorical variables, here we will use scatter plot and trend line to indicate the relationship.
+
+```{r fig.height=4, fig.width=5}
+# scatter plot of GrLiveArea
+# Change plot size to 5 x 4
+options(repr.plot.width=9, repr.plot.height=6)
+p1 <- ggplot(train, aes(x=GrLivArea, y=SalePrice)) + 
+  geom_point(shape=1) +  
+  geom_smooth(method=lm , color="red", se=FALSE)+
+  ggtitle("SalePrice and GrLivArea") +
+  theme(plot.title = element_text(hjust = 0.4))
+
+# scatter plot of TotalBsmtSF
+p2 <- ggplot(train, aes(x=TotalBsmtSF, y=SalePrice)) + 
+  geom_point(shape=1) +  
+  geom_smooth(method=lm , color="red", se=FALSE)+
+  ggtitle("SalePrice and TotalBsmtSF") +
+  theme(plot.title = element_text(hjust = 0.4))
+
+#scatter plot of TotRmsAbvGrd
+p3 <- ggplot(train, aes(x=TotRmsAbvGrd, y=SalePrice)) + 
+  geom_point(shape=1) +  
+  geom_smooth(method=lm , color="red", se=FALSE)+
+  ggtitle("SalePrice and TotRmsAbvGrd") +
+  theme(plot.title = element_text(hjust = 0.4))
+
+#scatter plot of GarageArea
+p4 <- ggplot(train, aes(x=GarageArea, y=SalePrice)) + 
+  geom_point(shape=1) +  
+  geom_smooth(method=lm , color="red", se=FALSE)+
+  ggtitle("SalePrice and GarageArea") +
+  theme(plot.title = element_text(hjust = 0.4))
+```
+
+```{r }
+#install.packages("gridExtra")
+library(gridExtra)
+grid.arrange(p1, p2,p3,p4)
+```
+
+#GrLivArea, TotalBsmtSF, TotRmsAbvGrd, and GarageArea are positively correlated with SalePrice, which means with the increase of GrLivArea, TotalBsmtSF, TotRmsAbvGrd and GarageArea, the SalePrice also increases.TotalBsmtSF has more concentrated distribution than others
+
+#Model Fitting
+
+After Descriptive Analysis we are moving into Predictive Analysis section. There are three models here: 
+
+Linear Regression Model 
+
+Classification & Regression Trees (CART) Model 
+
+Random Forest Model 
+
+# Linear Regression Model
+
+In Linear Regresion Model, the relationships between Dependent and Indepedent Variables is expressed by equation with coefficients. The aim of this model is to minimize the sum of the squared residuals.
+
+**Variables in this model**: 
+
+SalePrice, OverallQual, OverallCond, YearBuilt, ExterQual, ExterCond, TotalBsmtSF, HeatingQC, CentralAir, GrLivArea, BedroomAbvGr, TotRmsAbvGrd, Fireplaces, GarageArea,OpenPorchSF, YrSold, YearRemodAdd.
+
+```{r}
+#prediction of lm
+#build model dataset for linear regression 
+model_lin <- train[, model_var]
+```
+
+```{r}
+#use lm() to run linear regression of SalePrice on all variables in model dataset
+linreg <- lm(SalePrice~., data = model_lin)
+summary(linreg)
+```
+
+ Forecast and check for model accuracy
+ 
+```{r}
+#install.packages("forecast")
+library(forecast)
+#use predict() to make prediction on a new set
+pred1 <- predict(linreg,test,type = "response")
+residuals <- test$SalePrice - pred1
+linreg_pred <- data.frame("Predicted" = pred1, "Actual" = test$SalePrice, "Residual" = residuals)
+accuracy(pred1, test$SalePrice)
+```
+
+```{r}
+pred_linreg<- predict(linreg,newdata = test)
+lin_sse <- sum((pred_linreg - test$SalePrice)^2)
+lin_sse
+lin_sst <- sum((test$SalePrice-mean(model_lin$SalePrice))^2)
+lin_sst
+rs <- 1-lin_sse/lin_sst # rs = Rsqure
+rs
+```
+```{r}
+plot(linreg_pred)
+
+
+```
+
+
+
+#Tree Model
+
+```{r}
+# classification tree
+library(rpart)
+#install.packages("rpart.plot")
+library(rpart.plot)
+
+class.tree <- rpart(SalePrice ~.,data = train,control = rpart.control(cp = 0.01))
+
+plotcp(class.tree)
+
+```
+
+```{r}
+printcp(class.tree)
+```
+
+
+
+```{r fig.height=6, fig.width=6}
+rpart.plot(class.tree, 
+           box.palette="GnBu",
+           branch.lty=3, shadow.col="gray", nn=TRUE)
+```
+
+```{r}
+tree_pred <- predict(class.tree,newdata = test)
+tree_sse <- sum((tree_pred - test$SalePrice)^2)
+tree_sse
+tree_sst <- sum((test$SalePrice-mean(train$SalePrice))^2)
+tree_sst
+tree_rs <- 1-tree_sse/tree_sst # rs = Rsqure
+tree_rs
+```
+
+
+```{r}
+pred_tree<- predict(class.tree, newdata = test )
+accuracy(pred_tree, test$SalePrice)
+```
+
+ 
+ # Random Forest
+ 
+```{r}
+library(randomForest)
+#install.packages("randomForestExplainer")
+library(randomForestExplainer)
+#set.seed(123)
+#RF <- randomForest(SalePrice ~., data = train, 
+                   #importance =TRUE,ntree=500,nodesize=7, na.action=na.roughfix)
+#print(RF)
+
+```
+ 
+```{r}
+set.seed(123)
+RF1 <- randomForest(SalePrice ~ ., data = train, localImp = TRUE)
+RF1
+
+```
+ 
+ 
+ # Error vs Number of Trees Graph.
+ 
+```{r}
+plot(RF1,col="red")
+```
+ 
+ This plot shows the Error and the Number of Trees.We can easily notice that how the Error is dropping as we keep on adding more and more trees and average them.
+ 
+ 
+ 
+ 
+ 
+```{r fig.height=6, fig.width=6}
+# variable importance
+options(repr.plot.width=9, repr.plot.height=6)
+varImpPlot(RF1, type=1)
+```
+ 
+ 
+
+```{r}
+#prediction
+rf.pred <- predict(RF1, newdata = test )
+accuracy(rf.pred, test$SalePrice)
+```
+
+```{r}
+forest_pred <- predict(RF1,newdata = test)
+forest_sse <- sum((forest_pred - test$SalePrice)^2)
+forest_sse
+forest_sst <- sum((test$SalePrice-mean(train$SalePrice))^2)
+forest_sst
+forest_rs <- 1-forest_sse/forest_sst # rs = Rsqure
+forest_rs
+```
+
+
+```{r}
+min_depth <- min_depth_distribution(RF)
+ save(min_depth, file = "min_depth.rda")
+load("min_depth.rda")
+head(min_depth, n = 10)
+```
+
+```{r}
+
+plot_min_depth_distribution(min_depth)
+```
+
+```{r}
+plot_min_depth_distribution(min_depth, mean_sample = "relevant_trees", k = 15)
+```
+  
+
+```{r}
+variable_importance <- measure_importance(RF1)
+save(variable_importance, file = "variable_importance.rda")
+load("variable_importance.rda")
+variable_importance
+```
+
+
+```{r}
+plot_multi_way_importance(variable_importance, size_measure = "no_of_nodes")
+```
+
+```{r}
+plot_multi_way_importance(variable_importance, x_measure = "mse_increase", y_measure = "node_purity_increase", size_measure = "p_value", no_of_labels = 5)
+```
+
+```{r}
+plot_importance_ggpairs(variable_importance)
+```
+
+```{r}
+plot_importance_rankings(variable_importance)
+```
+
+```{r}
+(vars <- important_variables(variable_importance, k = 5, measures = c("mean_min_depth", "no_of_trees")))
+
+```
+
+```{r}
+interactions <- min_depth_interactions(RF, vars)
+save(interactions, file = "interactions.rda")
+load("interactions.rda")
+head(interactions[order(interactions$occurrences, decreasing = TRUE), ])
+```
+
+```{r}
+plot_min_depth_interactions(interactions)
+```
+
+```{r}
+plot_predict_interaction(RF, train, "GrLivArea", "OverallQual")
+```
+
+```{r}
+summary(rf.pred)
+```
+
+```{r}
+summary(linreg_pred)
+```
+
+```{r}
+summary(pred_tree)
+```
+
+
+```{r}
+summary(train$SalePrice)
+```
+
+#The summary of predicted values shows random forest did better prediction than other models
