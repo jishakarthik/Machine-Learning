@@ -304,10 +304,47 @@ rs
 ```{r}
 plot(linreg_pred)
 
-
 ```
 
 
+```{r}
+linreg_1 <- lm(SalePrice ~ OverallQual + OverallCond + TotalBsmtSF + GrLivArea + GarageArea + YearBuilt + HeatingQC + Fireplaces + YearRemodAdd, data = model_lin)
+summary(linreg_1)
+```
+
+```{r}
+pred2 <- predict(linreg_1,test,type = "response")
+residuals <- test$SalePrice - pred2
+linreg1_pred <- data.frame("Predicted" = pred2, "Actual" = test$SalePrice, "Residual" = residuals)
+accuracy(pred2, test$SalePrice)
+```
+ Pred1 Comparison # 
+  ME     RMSE      MAE      MPE     MAPE
+Test set 180620.9 195095.3 180620.9 99.87542 99.87542
+
+```{r}
+pred_linreg1<- predict(linreg_1,newdata = test)
+lin_sse1 <- sum((pred_linreg1 - test$SalePrice)^2)
+lin_sse1
+lin_sst1 <- sum((test$SalePrice-mean(model_lin$SalePrice))^2)
+lin_sst1
+rs1 <- 1-lin_sse1/lin_sst1 # rs = Rsqure
+rs1
+```
+ No siginificant change in both models
+ 
+```{r}
+linreg_2 <- lm(SalePrice ~ OverallQual + TotalBsmtSF + GrLivArea + GarageArea , data = model_lin)
+summary(linreg_2)
+```
+
+```{r}
+pred3 <- predict(linreg_2,test,type = "response")
+residuals <- test$SalePrice - pred3
+linreg2_pred <- data.frame("Predicted" = pred3, "Actual" = test$SalePrice, "Residual" = residuals)
+accuracy(pred3, test$SalePrice)
+```
+ 
 
 #Tree Model
 
@@ -367,7 +404,7 @@ library(randomForestExplainer)
  
 ```{r}
 set.seed(123)
-RF1 <- randomForest(SalePrice ~ ., data = train, localImp = TRUE)
+RF1 <- randomForest(SalePrice ~ ., data = train, importance = TRUE)
 RF1
 
 ```
@@ -391,7 +428,6 @@ options(repr.plot.width=9, repr.plot.height=6)
 varImpPlot(RF1, type=1)
 ```
  
- 
 
 ```{r}
 #prediction
@@ -409,9 +445,52 @@ forest_rs <- 1-forest_sse/forest_sst # rs = Rsqure
 forest_rs
 ```
 
+```{r}
+RF2 <- randomForest(SalePrice ~ ., data = train,mtry =7, importance = TRUE)
+RF2
+```
 
 ```{r}
-min_depth <- min_depth_distribution(RF)
+rf.pred2 <- predict(RF2, newdata = test )
+accuracy(rf.pred2, test$SalePrice)
+```
+
+```{r}
+forest_pred2 <- predict(RF2,newdata = test)
+forest_sse2 <- sum((forest_pred2 - test$SalePrice)^2)
+forest_sse2
+forest_sst2 <- sum((test$SalePrice-mean(train$SalePrice))^2)
+forest_sst2
+forest_rs2 <- 1-forest_sse2 /forest_sst2 # rs = Rsqure
+forest_rs2
+```
+
+
+```{r}
+RF3 <- randomForest(SalePrice ~ ., data = train,mtry =4, importance = TRUE)
+RF3
+```
+
+```{r}
+rf.pred3 <- predict(RF3, newdata = test )
+accuracy(rf.pred3, test$SalePrice)
+```
+
+```{r}
+forest_pred3 <- predict(RF3,newdata = test)
+forest_sse3 <- sum((forest_pred - test$SalePrice)^2)
+forest_sse3
+forest_sst3 <- sum((test$SalePrice-mean(train$SalePrice))^2)
+forest_sst3
+forest_rs3 <- 1-forest_sse3/forest_sst3 # rs = Rsqure
+forest_rs3
+```
+
+
+
+
+```{r}
+min_depth <- min_depth_distribution(RF3)
  save(min_depth, file = "min_depth.rda")
 load("min_depth.rda")
 head(min_depth, n = 10)
@@ -428,7 +507,7 @@ plot_min_depth_distribution(min_depth, mean_sample = "relevant_trees", k = 15)
   
 
 ```{r}
-variable_importance <- measure_importance(RF1)
+variable_importance <- measure_importance(RF3)
 save(variable_importance, file = "variable_importance.rda")
 load("variable_importance.rda")
 variable_importance
@@ -457,7 +536,7 @@ plot_importance_rankings(variable_importance)
 ```
 
 ```{r}
-interactions <- min_depth_interactions(RF, vars)
+interactions <- min_depth_interactions(RF3, vars)
 save(interactions, file = "interactions.rda")
 load("interactions.rda")
 head(interactions[order(interactions$occurrences, decreasing = TRUE), ])
@@ -468,15 +547,15 @@ plot_min_depth_interactions(interactions)
 ```
 
 ```{r}
-plot_predict_interaction(RF, train, "GrLivArea", "OverallQual")
+plot_predict_interaction(RF3, train, "GrLivArea", "OverallQual")
 ```
 
 ```{r}
-summary(rf.pred)
+summary(rf.pred3)
 ```
 
 ```{r}
-summary(linreg_pred)
+summary(linreg2_pred)
 ```
 
 ```{r}
